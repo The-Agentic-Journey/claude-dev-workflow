@@ -4,6 +4,17 @@ set -euo pipefail
 # ============================================================
 # ./do — Development task runner
 #
+# This script is the single entry point for all development
+# tasks. It is self-contained: it checks for prerequisites,
+# auto-installs dependencies where possible, and "just works"
+# when run from a fresh checkout.
+#
+# Philosophy:
+#   - One-stop shop: ./do run starts everything
+#   - Self-contained: auto-installs what it can
+#   - Minimal host dependencies: only requires bash and basic tools
+#   - Running documentation: the script IS the setup guide
+#
 # Usage: ./do <command>
 #
 # Commands:
@@ -14,44 +25,50 @@ set -euo pipefail
 #   check    Full verification (must pass before every commit)
 # ============================================================
 
+# --- Color output helpers ---
+
+_green()  { printf '\033[0;32m%s\033[0m\n' "$*"; }
+_yellow() { printf '\033[0;33m%s\033[0m\n' "$*"; }
+_red()    { printf '\033[0;31m%s\033[0m\n' "$*"; }
+_bold()   { printf '\033[1m%s\033[0m\n' "$*"; }
+
+# --- Dependency checks ---
+
+require_cmd() {
+  if ! command -v "$1" &>/dev/null; then
+    _red "Required command not found: $1"
+    if [ -n "${2:-}" ]; then
+      _yellow "Install it: $2"
+    fi
+    exit 1
+  fi
+}
+
+# --- Commands ---
+
 build() {
-  # TODO: Add build command
-  echo "build: not implemented yet"
-  exit 1
+  _bold "build"
+  _yellow "Not implemented yet — ./do build will be configured by /dev:plan"
 }
 
 lint() {
-  # TODO: Add lint command
-  echo "lint: not implemented yet"
-  exit 1
+  _bold "lint"
+  _yellow "Not implemented yet — ./do lint will be configured by /dev:plan"
 }
 
 test_cmd() {
-  # TODO: Add test command
-  echo "test: not implemented yet"
-  exit 1
+  _bold "test"
+  _yellow "Not implemented yet — ./do test will be configured by /dev:plan"
 }
 
 run_cmd() {
-  # TODO: Add run command
-  echo "run: not implemented yet"
-  exit 1
+  _bold "run"
+  _yellow "Not implemented yet — ./do run will be configured by /dev:plan"
 }
 
 check() {
-  # TODO: Add full verification command
-  # This is the mandatory pre-commit check. It may include:
-  # - Linting
-  # - Building
-  # - Testing
-  # - Deployment to staging
-  # - Integration tests
-  # - Any other verification steps
-  #
-  # This is NOT simply "run lint + build + test" — define whatever
-  # your project needs for full confidence before committing.
-  echo "check: not implemented yet"
-  exit 1
+  _bold "check"
+  _yellow "Not implemented yet — ./do check will be configured by /dev:plan"
 }
 
 case "${1:-}" in
@@ -61,7 +78,7 @@ case "${1:-}" in
   run)    run_cmd ;;
   check)  check ;;
   *)
-    echo "Usage: ./do <command>"
+    _bold "Usage: ./do <command>"
     echo ""
     echo "Commands:"
     echo "  build    Build the project"

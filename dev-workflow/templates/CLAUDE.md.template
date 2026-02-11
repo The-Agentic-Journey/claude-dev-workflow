@@ -43,13 +43,25 @@ Review `product/ADR/` for architecture decisions. Don't contradict established p
 
 Look in `product/plans/todo/` for any plans awaiting implementation.
 
-## Source Code Structure
+## Monorepo Structure
+
+This is a monorepo — all code, documentation, and infrastructure lives in this single repository. Packages are orchestrated by the `./do` script.
+
+### Packages
+
+| Package | Path | Purpose |
+|---------|------|---------|
+| {{PACKAGE_NAME}} | `{{PACKAGE_PATH}}/` | {{PACKAGE_PURPOSE}} |
+
+### Source Tree
 
 ```
 {{SOURCE_TREE}}
 ```
 
-## Development Commands
+## The `./do` Script
+
+The `./do` script is the project's **single entry point** for all development tasks. It is self-contained: it checks for prerequisites, auto-installs dependencies where possible, and "just works" from a fresh checkout.
 
 ```bash
 ./do build     # Build the project
@@ -59,19 +71,27 @@ Look in `product/plans/todo/` for any plans awaiting implementation.
 ./do check     # Full verification (must pass before every commit)
 ```
 
+**Philosophy:** Anyone should be able to `git clone` this repo, run `./do run`, and have the project running. The script handles dependency installation, environment setup, and anything else needed. It only requires minimal host dependencies (bash, and the project's primary runtime like Node). If something needs `sudo`, the script asks the user instead of failing silently.
+
+The `./do` script is maintained by `/dev:plan` — every feature plan considers whether `./do` needs updates.
+
 ## Planning and Implementation
 
 ### Creating Plans
 
-Use `/plan` to create feature plans. Plans live in `product/plans/todo/` and include:
-- Phased implementation steps
+Use `/dev:plan` to create feature plans. Plans live in `product/plans/todo/` and include:
+- Acceptance test scaffolds (always Phase 1)
+- Phased implementation following ATDD red-green cycles
 - DDD documentation updates (glossary, contexts, context map)
 - Architecture decision records for significant decisions
+- `./do` script updates as needed
 - Verification steps for each phase
+
+Plans are reviewed by four specialized sub-agent reviewers (feasibility, ATDD coverage, architecture, decision completeness) before being presented for approval.
 
 ### Implementing Plans
 
-Use `/implement` to execute plans. The implementation process:
+Use `/dev:implement` to execute plans. The implementation process:
 1. Reads the plan and breaks it into phases
 2. Delegates each phase to a sub-agent
 3. Runs `./do check` after each phase
@@ -81,6 +101,13 @@ Use `/implement` to execute plans. The implementation process:
 ### Verification Rule
 
 **`./do check` must pass before every commit.** No exceptions. No partial substitutes (`./do lint` alone, `./do build` alone, etc.).
+
+### Acceptance Test Driven Development
+
+Every feature follows ATDD:
+1. Acceptance test scaffolds are created first (skipped)
+2. Each phase: unskip test → verify it fails → implement code → verify it passes
+3. `./do check` always runs all acceptance tests
 
 ## Pre-change Questions
 

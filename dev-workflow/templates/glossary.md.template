@@ -4,6 +4,31 @@ This glossary defines the shared vocabulary used throughout the system. All team
 
 ---
 
+## Methodology Terms
+
+### Monorepo
+All project code lives in a single repository. Every package, service, library, and configuration file is versioned together. There are no multi-repo splits — one repo, one `./do` script, one source of truth.
+
+Key properties:
+- **Single repository:** All code, documentation, and infrastructure in one place
+- **Unified tooling:** The `./do` script is the single entry point for all tasks across all packages
+- **Atomic changes:** Cross-package changes are a single commit, not coordinated across repos
+
+### `./do` Script
+The project's single entry point for all development tasks. Self-contained, auto-installing, and the only thing a developer needs to know after `git clone`.
+
+Key properties:
+- **One-stop shop:** `./do run` starts everything, `./do check` verifies everything
+- **Self-contained:** Auto-installs dependencies, checks prerequisites, handles setup
+- **Minimal host requirements:** Only requires bash and the project's primary runtime
+- **Running documentation:** The script IS the setup guide — reading it tells you how the project works
+- **Monorepo-aware:** Orchestrates across all packages in the repo
+
+### Package
+A distinct unit within the monorepo — a service, library, frontend app, or other self-contained module. Packages live in top-level directories and are orchestrated by the `./do` script.
+
+---
+
 ## Core Domain Terms
 
 ### {{Term Name}}
