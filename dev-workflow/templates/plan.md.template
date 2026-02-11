@@ -1,0 +1,112 @@
+# {{Feature Name}} Plan
+
+## Overview
+
+Describe what this feature does and why it's needed. What problem does it solve? What value does it deliver?
+
+---
+
+## Phase 1: {{Phase Title}}
+
+### Goal
+
+What this phase accomplishes.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `{{path}}` | Create / Modify | {{What changes and why}} |
+
+### Verification
+
+- {{How to verify this phase works}}
+- Run `./do check`
+
+---
+
+## Phase 2: {{Phase Title}}
+
+### Goal
+
+What this phase accomplishes.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `{{path}}` | Create / Modify | {{What changes and why}} |
+
+### Verification
+
+- {{How to verify this phase works}}
+- Run `./do check`
+
+---
+
+<!-- Include DDD and ADR phases as needed. Examples: -->
+
+## Phase N: DDD — {{Update Glossary / Create Context Doc / Update Context Map}}
+
+### Goal
+
+Document new domain concepts introduced by this feature.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `product/DDD/glossary.md` | Modify | Add definitions for {{new terms}} |
+| `product/DDD/contexts/{{name}}.md` | Create | Bounded context document for {{context}} |
+| `product/DDD/context-map.md` | Modify | Add {{context}} and its relationships |
+
+### Verification
+
+- Review documentation for accuracy and completeness
+
+---
+
+## Phase N: ADR — {{Decision Title}}
+
+### Goal
+
+Record the architectural decision made for this feature.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `product/ADR/{{NNN}}-{{slug}}.md` | Create | ADR documenting {{decision}} |
+
+### Verification
+
+- Review ADR for completeness (context, decision, rationale, consequences)
+
+---
+
+## Files Summary
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `{{path}}` | Create / Modify | {{Purpose}} |
+
+---
+
+## End-to-End Verification
+
+After all phases are complete:
+
+1. {{Step-by-step verification of the complete feature}}
+2. Run `./do check` — full CI pipeline must pass
+
+---
+
+## Update Considerations
+
+How will this feature behave when updating from an older version?
+
+- **Config changes**: New keys with defaults / None
+- **Storage changes**: New directories created on demand / None
+- **Dependency changes**: New packages / None
+- **Migration needed**: Yes (describe) / No
+- **Backwards compatibility**: How old installations are affected

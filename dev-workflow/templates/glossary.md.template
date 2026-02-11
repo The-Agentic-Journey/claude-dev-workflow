@@ -1,0 +1,46 @@
+# Ubiquitous Language Glossary
+
+This glossary defines the shared vocabulary used throughout the system. All team members and documentation should use these terms consistently.
+
+---
+
+## Core Domain Terms
+
+### {{Term Name}}
+Definition of what this term means in the domain. Be precise — this is the authoritative definition.
+
+Key properties:
+- **Property A:** Description
+- **Property B:** Description
+
+---
+
+## {{Additional Category}}
+
+### {{Term Name}}
+Definition of what this term means.
+
+---
+
+## How to Add New Terms
+
+When introducing a new domain concept:
+
+1. **Choose the right category** — Group related terms together. Create a new category if none fits.
+2. **Write a precise definition** — Avoid ambiguity. If a term means something specific in this project that differs from common usage, call that out explicitly.
+3. **List key properties** — What are the important attributes or characteristics?
+4. **Note relationships** — Reference other glossary terms where relevant.
+5. **Keep it current** — Update definitions when the domain model evolves. Remove terms that are no longer used.
+
+### Format
+
+```markdown
+### Term Name
+Definition paragraph explaining what this term means.
+
+Key properties:
+- **Property:** Description
+- **Property:** Description
+
+**Note:** Any important caveats or distinctions.
+```

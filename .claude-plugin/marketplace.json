@@ -1,0 +1,17 @@
+{
+  "name": "marketplace",
+  "owner": {
+    "name": "marketplace"
+  },
+  "metadata": {
+    "description": "Development workflow plugins for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "dev",
+      "source": "./dev-workflow",
+      "description": "Structured development methodology with DDD documentation, architecture decision records, phased plans, and orchestrated implementation with mandatory verification",
+      "version": "1.0.0"
+    }
+  ]
+}

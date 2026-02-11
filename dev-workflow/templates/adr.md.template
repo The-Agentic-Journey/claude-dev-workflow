@@ -1,0 +1,52 @@
+# ADR-{{NNN}}: {{Title}}
+
+## Status
+
+Proposed / Accepted / Deprecated / Superseded by ADR-{{NNN}}
+
+## Context
+
+Describe the problem, situation, or forces at play. What decision needs to be made and why?
+
+- What constraints exist?
+- What requirements drive this decision?
+- What trade-offs are involved?
+
+## Decision
+
+State the decision that was made. Be specific about what was chosen.
+
+## Rationale
+
+### Why This Approach
+
+Explain why this decision was made. What advantages does it offer?
+
+1. **{{Reason}}** — Explanation
+2. **{{Reason}}** — Explanation
+
+### Why Not Alternatives
+
+| Alternative | Why Not |
+|-------------|---------|
+| {{Option}} | {{Reason for rejection}} |
+
+## Consequences
+
+### Positive
+
+- {{Benefit}}
+- {{Benefit}}
+
+### Negative
+
+- {{Drawback}}
+- {{Drawback}}
+
+### Neutral
+
+- {{Observation}}
+
+## References
+
+- {{Related ADRs, plan documents, or external resources}}

@@ -1,0 +1,92 @@
+# Claude Guide for {{PROJECT_NAME}}
+
+This document helps Claude instances understand and work effectively with the {{PROJECT_NAME}} codebase.
+
+## Project Overview
+
+{{PROJECT_DESCRIPTION}}
+
+**Tech stack**: {{TECH_STACK}}
+
+## Documentation Structure
+
+```
+product/
+├── DDD/                          # Domain-Driven Design documentation
+│   ├── glossary.md               # Ubiquitous language
+│   ├── context-map.md            # Bounded contexts overview
+│   └── contexts/                 # Detailed context documentation
+│       └── (context files)
+│
+├── ADR/                          # Architecture Decision Records
+│   └── (decision records)
+│
+└── plans/
+    ├── todo/                     # Plans awaiting implementation
+    └── done/                     # Completed plans (historical reference)
+```
+
+## Before Starting Work
+
+### 1. Understand the Domain
+
+Read in this order:
+1. `product/DDD/glossary.md` - Learn the vocabulary
+2. `product/DDD/context-map.md` - Understand bounded contexts
+3. Relevant context file in `product/DDD/contexts/` for the area you'll modify
+
+### 2. Check Existing Decisions
+
+Review `product/ADR/` for architecture decisions. Don't contradict established patterns without good reason and a new ADR.
+
+### 3. Check for Pending Plans
+
+Look in `product/plans/todo/` for any plans awaiting implementation.
+
+## Source Code Structure
+
+```
+{{SOURCE_TREE}}
+```
+
+## Development Commands
+
+```bash
+./do build     # Build the project
+./do lint      # Run linter
+./do test      # Run tests
+./do run       # Run the project locally
+./do check     # Full verification (must pass before every commit)
+```
+
+## Planning and Implementation
+
+### Creating Plans
+
+Use `/plan` to create feature plans. Plans live in `product/plans/todo/` and include:
+- Phased implementation steps
+- DDD documentation updates (glossary, contexts, context map)
+- Architecture decision records for significant decisions
+- Verification steps for each phase
+
+### Implementing Plans
+
+Use `/implement` to execute plans. The implementation process:
+1. Reads the plan and breaks it into phases
+2. Delegates each phase to a sub-agent
+3. Runs `./do check` after each phase
+4. Creates a focused commit per phase
+5. Moves completed plans to `product/plans/done/`
+
+### Verification Rule
+
+**`./do check` must pass before every commit.** No exceptions. No partial substitutes (`./do lint` alone, `./do build` alone, etc.).
+
+## Pre-change Questions
+
+Before making significant changes, ask:
+1. Does this align with existing ADRs?
+2. Which bounded context does this belong to?
+3. Should this be a new plan document first?
+4. Have I read the existing code I'm modifying?
+5. Does this maintain the simplicity principle?

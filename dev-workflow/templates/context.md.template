@@ -1,0 +1,93 @@
+# {{Context Name}} Context
+
+**Classification:** Core Domain / Supporting Domain / Infrastructure Domain
+**Source:** `{{source files}}`
+
+---
+
+## Purpose
+
+Describe what this bounded context is responsible for. What domain problem does it solve? Why does it exist as a separate context?
+
+---
+
+## Key Concepts
+
+### Aggregate: {{Aggregate Name}}
+
+The primary aggregate in this context.
+
+#### Identity
+
+```
+id: string  // Format and generation strategy
+```
+
+#### State
+
+```
+{{language-appropriate type definition showing the aggregate's fields}}
+```
+
+#### Invariants
+
+1. **{{Invariant Name}}:** Description of the business rule
+2. **{{Invariant Name}}:** Description of the business rule
+
+#### Lifecycle
+
+```
+Describe or diagram the state transitions
+```
+
+### Entities
+
+#### {{Entity Name}}
+Description and key attributes.
+
+### Value Objects
+
+#### {{Value Object Name}}
+Description, attributes, and equality rules.
+
+---
+
+## Domain Services
+
+### {{serviceName}}({{params}}): {{returnType}}
+
+Describe what this service does:
+
+```
+1. Step one
+2. Step two
+3. Step three
+```
+
+**Failure Handling:** How errors are managed.
+
+---
+
+## Dependencies
+
+| Context | Dependency Type | Purpose |
+|---------|-----------------|---------|
+| {{Context}} | Read / Write / Read+Write | {{Why}} |
+
+---
+
+## Domain Events
+
+Events that occur within this context:
+
+| Event | Trigger | Side Effects |
+|-------|---------|--------------|
+| {{EventName}} | {{What causes it}} | {{What happens as a result}} |
+
+---
+
+## Code Location
+
+| Component | File | Description |
+|-----------|------|-------------|
+| {{Component}} | `{{file path}}` | {{What it contains}} |

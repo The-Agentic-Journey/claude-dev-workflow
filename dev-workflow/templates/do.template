@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ============================================================
+# ./do — Development task runner
+#
+# Usage: ./do <command>
+#
+# Commands:
+#   build    Build the project
+#   lint     Run linter
+#   test     Run tests
+#   run      Run the project locally
+#   check    Full verification (must pass before every commit)
+# ============================================================
+
+build() {
+  # TODO: Add build command
+  echo "build: not implemented yet"
+  exit 1
+}
+
+lint() {
+  # TODO: Add lint command
+  echo "lint: not implemented yet"
+  exit 1
+}
+
+test_cmd() {
+  # TODO: Add test command
+  echo "test: not implemented yet"
+  exit 1
+}
+
+run_cmd() {
+  # TODO: Add run command
+  echo "run: not implemented yet"
+  exit 1
+}
+
+check() {
+  # TODO: Add full verification command
+  # This is the mandatory pre-commit check. It may include:
+  # - Linting
+  # - Building
+  # - Testing
+  # - Deployment to staging
+  # - Integration tests
+  # - Any other verification steps
+  #
+  # This is NOT simply "run lint + build + test" — define whatever
+  # your project needs for full confidence before committing.
+  echo "check: not implemented yet"
+  exit 1
+}
+
+case "${1:-}" in
+  build)  build ;;
+  lint)   lint ;;
+  test)   test_cmd ;;
+  run)    run_cmd ;;
+  check)  check ;;
+  *)
+    echo "Usage: ./do <command>"
+    echo ""
+    echo "Commands:"
+    echo "  build    Build the project"
+    echo "  lint     Run linter"
+    echo "  test     Run tests"
+    echo "  run      Run the project locally"
+    echo "  check    Full verification (must pass before every commit)"
+    exit 1
+    ;;
+esac

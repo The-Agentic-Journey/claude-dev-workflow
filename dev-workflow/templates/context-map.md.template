@@ -1,0 +1,89 @@
+# Bounded Context Map
+
+This document provides an overview of all bounded contexts in the system and their relationships.
+
+---
+
+## Context Overview
+
+```
+{{ASCII_DIAGRAM}}
+
+Example:
+┌─────────────────────────────────────────────────────┐
+│                     SYSTEM                           │
+│                                                      │
+│              ┌─────────────────┐                     │
+│              │  Core Context   │                     │
+│              │  (Core Domain)  │                     │
+│              └────────┬────────┘                     │
+│                       │                              │
+│           ┌───────────┼───────────┐                  │
+│           ▼           ▼           ▼                  │
+│   ┌──────────┐ ┌──────────┐ ┌──────────┐           │
+│   │Supporting│ │Supporting│ │Infra     │           │
+│   │Context A │ │Context B │ │Context C │           │
+│   └──────────┘ └──────────┘ └──────────┘           │
+│                                                      │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## Contexts by Strategic Classification
+
+### Core Domain
+
+| Context | Purpose | Strategic Value |
+|---------|---------|-----------------|
+| {{Context Name}} | {{Purpose}} | Highest - this is the product's core value |
+
+### Supporting Domains
+
+| Context | Purpose | Strategic Value |
+|---------|---------|-----------------|
+| {{Context Name}} | {{Purpose}} | {{Value}} |
+
+### Infrastructure Domains
+
+| Context | Purpose | Strategic Value |
+|---------|---------|-----------------|
+| {{Context Name}} | {{Purpose}} | {{Value}} |
+
+---
+
+## Context Relationships
+
+### {{Context A}} → {{Context B}}
+**Relationship:** Customer-Supplier / Shared Kernel / Conformist / Anti-Corruption Layer
+**Direction:** {{Context A}} depends on {{Context B}}
+**Integration:**
+- How context A uses context B
+- What data flows between them
+
+---
+
+## Shared Kernel
+
+Elements shared across contexts:
+
+| Shared Element | Location | Used By |
+|----------------|----------|---------|
+| {{Element}} | {{File}} | {{Contexts}} |
+
+---
+
+## File to Context Mapping
+
+| File | Context |
+|------|---------|
+| {{file path}} | {{Context Name}} |
+
+---
+
+## Communication Patterns
+
+Describe how contexts communicate:
+- Synchronous / Asynchronous
+- In-process / Over network
+- Event-driven / Direct calls
