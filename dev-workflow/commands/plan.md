@@ -107,24 +107,169 @@ The new plan gets the next number (e.g., if highest is 004, new plan is 005).
 
 Create the plan file at `product/plans/todo/XXX-PLAN-FEATURE-NAME.md`.
 
-Reference the plan template at `templates/plan.md.template` for the expected format. The plan must include:
-
-- **Overview** — What and why
-- **Acceptance Criteria** — Complete list with test mapping
-- **Phase 1: Acceptance Test Scaffolds** — Always first: create all tests as skipped stubs
-- **Subsequent Phases** — Each with: acceptance test implementation (red), production code (green), `./do check` verification
-- **DDD phases** — Glossary updates, context docs, context map updates (as applicable)
-- **ADR phases** — Architecture decision records (as applicable)
-- **`./do` script phases** — Any changes to the task runner (as applicable)
-- **Files Summary** — Complete table of all files touched
-- **End-to-End Verification** — Including `./do check`
-- **Update Considerations** — Config, storage, dependencies, migration, backwards compatibility
-
-Order phases logically. DDD/ADR phases typically come before or alongside the code phases they document. The acceptance test scaffold phase is always first.
+Use the following format. Order phases logically. DDD/ADR phases typically come before or alongside the code phases they document. The acceptance test scaffold phase is always first.
 
 **Every instruction in the plan must be specific and unambiguous.** Don't write "implement appropriate error handling" — write "return HTTP 422 with body `{ "error": "invalid_email", "message": "Email must contain @" }` when the email field fails validation." The implementer should be able to work mechanically.
 
 The plan should reflect all the decisions made with the user in step 3.
+
+#### Plan Format
+
+````markdown
+# {{Feature Name}} Plan
+
+## Overview
+
+Describe what this feature does and why it's needed. What problem does it solve? What value does it deliver?
+
+## Acceptance Criteria
+
+| # | Criterion | Acceptance Test |
+|---|-----------|-----------------|
+| 1 | {{User-facing behavior}} | `{{test file}}`: `{{test name}}` |
+| 2 | {{User-facing behavior}} | `{{test file}}`: `{{test name}}` |
+
+---
+
+## Phase 1: Acceptance Test Scaffolds
+
+### Goal
+
+Create all acceptance tests as skipped/pending stubs. After this phase, `./do check` passes with skipped tests.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `{{test path}}` | Create | Skipped acceptance tests for criteria #1–#N |
+
+### Verification
+
+- All acceptance tests exist and are skipped
+- Run `./do check` — passes (skipped tests don't fail)
+
+---
+
+## Phase 2: {{Phase Title}}
+
+### Goal
+
+What this phase accomplishes.
+
+### Acceptance Test (Red)
+
+Unskip and implement the acceptance test(s) for this phase:
+
+| Test | Criterion | Expected Behavior |
+|------|-----------|-------------------|
+| `{{test name}}` | #1 | {{What the test asserts}} |
+
+Verify the test **fails** (red) before implementing production code.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `{{path}}` | Create / Modify | {{Specific, unambiguous description of what changes}} |
+
+### Verification
+
+- Acceptance test(s) pass (green)
+- Run `./do check` — all checks pass
+
+---
+
+<!-- Repeat for each implementation phase, always starting with the acceptance test -->
+
+<!-- Include DDD, ADR, and ./do phases as needed: -->
+
+## Phase N: DDD — {{Update Glossary / Create Context Doc / Update Context Map}}
+
+### Goal
+
+Document new domain concepts introduced by this feature.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `product/DDD/glossary.md` | Modify | Add definitions for {{new terms}} |
+| `product/DDD/contexts/{{name}}.md` | Create | Bounded context document for {{context}} |
+| `product/DDD/context-map.md` | Modify | Add {{context}} and its relationships |
+
+### Verification
+
+- Review documentation for accuracy and completeness
+
+---
+
+## Phase N: ADR — {{Decision Title}}
+
+### Goal
+
+Record the architectural decision made for this feature.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `product/ADR/{{NNN}}-{{slug}}.md` | Create | ADR documenting {{decision}} |
+
+### Verification
+
+- Review ADR for completeness (context, decision, rationale, consequences)
+
+---
+
+## Phase N: `./do` Script Updates
+
+### Goal
+
+Update the task runner to support the new feature's requirements.
+
+### Changes
+
+| File | Action | Details |
+|------|--------|---------|
+| `./do` | Modify | {{Specific changes: new commands, updated dependency checks, updated check pipeline}} |
+
+### Verification
+
+- `./do check` includes new acceptance tests
+- `./do run` still works from a fresh checkout
+- Any new `./do` subcommands work correctly
+
+---
+
+## Files Summary
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `{{path}}` | Create / Modify | {{Purpose}} |
+
+---
+
+## End-to-End Verification
+
+After all phases are complete:
+
+1. All acceptance tests pass (none skipped)
+2. `./do check` passes — full verification pipeline
+3. `./do run` works from a fresh checkout
+4. {{Additional step-by-step verification of the complete feature}}
+
+---
+
+## Update Considerations
+
+How will this feature behave when updating from an older version?
+
+- **Config changes**: New keys with defaults / None
+- **Storage changes**: New directories created on demand / None
+- **Dependency changes**: New packages / None
+- **Migration needed**: Yes (describe) / No
+- **Backwards compatibility**: How old installations are affected
+````
 
 ### 10. Review Plan via Sub-Agents
 
@@ -213,7 +358,7 @@ The plan is now on main and ready for `/dev:implement` to pick up.
 
 7. **The plan is reviewed before the user sees it.** Four specialized sub-agent reviewers check feasibility, ATDD coverage, architecture, and decision completeness. Findings are fixed before presenting to the user.
 
-8. **Plans reference the template format.** See `templates/plan.md.template` for the expected structure.
+8. **Plans follow the format defined in step 9.** The plan format is embedded above — do not look for external template files.
 
 9. **Plans go in `product/plans/todo/`.** After implementation via `/dev:implement`, they are moved to `product/plans/done/`.
 
