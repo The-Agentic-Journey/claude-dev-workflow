@@ -40,9 +40,13 @@ It's fine to start with one package. More can be added later via `/dev:plan`.
 
 The runtime environment provides four port/host pairs via environment variables (`$PORT1`/`$HOST1` through `$PORT4`/`$HOST4`). Each port is behind a reverse proxy at its corresponding HOST URL.
 
-Ask: "Which packages need a port? For example, does the backend need PORT1 and the frontend need PORT2?"
+Based on the packages identified in step 3, **suggest** port assignments. You know the architecture — assign sequentially starting from PORT1. Backend APIs, frontend dev servers, and any other network-facing service each get a port. Libraries and shared packages don't need one.
 
-Map each server-capable package to a port/host pair. Record this mapping — it goes into the CLAUDE.md Runtime Environment section. Not all packages need ports (e.g., a shared library doesn't).
+For example, if the project has a backend and a frontend:
+- `server/` → `$PORT1` / `$HOST1`
+- `client/` → `$PORT2` / `$HOST2`
+
+Present the assignment to the user as a done deal: "I've assigned PORT1/HOST1 to the server and PORT2/HOST2 to the client." The user can correct if needed, but don't ask — suggest.
 
 ### 6. Create Directory Structure
 
