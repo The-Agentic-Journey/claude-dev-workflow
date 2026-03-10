@@ -17,6 +17,10 @@ The user provides a plan to implement. Find it using this priority:
 Receives a phase description and implements it. Instructions to give the sub-agent:
 
 ```
+Working directory: [absolute path to worktree, e.g. /home/user/project/.claude/worktrees/XXX-feature-name]
+
+IMPORTANT: You MUST cd into the working directory above before doing ANY work. All file paths are relative to that directory.
+
 Implement the following phase from the plan:
 
 [paste the phase description, including goal, changes table, and any relevant context]
@@ -27,6 +31,7 @@ Context:
 - Follow existing patterns in the codebase
 
 Rules:
+- First run: cd [worktree path]
 - Do NOT run ./do check
 - Do NOT create any commits
 - NEVER ask questions or use AskUserQuestion — just implement what the phase says
@@ -38,8 +43,13 @@ Rules:
 Runs `./do check` with output captured to a unique log file. Instructions to give the sub-agent:
 
 ```
+Working directory: [absolute path to worktree, e.g. /home/user/project/.claude/worktrees/XXX-feature-name]
+
+IMPORTANT: You MUST cd into the working directory above before doing ANY work.
+
 Run the project's full verification command, capturing all output to a unique log file:
 
+cd [worktree path]
 LOG_FILE="/tmp/do-check-$(date +%s)-$$.log"
 ./do check 2>&1 | tee "$LOG_FILE"
 
@@ -58,16 +68,21 @@ IMPORTANT:
 Reads the verification log file and fixes the issues. Instructions to give the sub-agent:
 
 ```
+Working directory: [absolute path to worktree, e.g. /home/user/project/.claude/worktrees/XXX-feature-name]
+
+IMPORTANT: You MUST cd into the working directory above before doing ANY work. All file paths are relative to that directory.
+
 The code has verification errors. Your task is to fix ALL errors.
 
 The verification log is at: [log file path]
 
 Instructions:
-1. Read the log file to understand what failed
-2. Identify which files have errors
-3. Read those files to understand the issues
-4. Fix ALL errors in the code
-5. Report back what you fixed
+1. First run: cd [worktree path]
+2. Read the log file to understand what failed
+3. Identify which files have errors
+4. Read those files to understand the issues
+5. Fix ALL errors in the code
+6. Report back what you fixed
 
 Rules:
 - Do NOT run ./do check
@@ -97,7 +112,8 @@ Derive a branch name from the plan filename. For example, plan `003-PLAN-USER-AU
    git worktree add .claude/worktrees/XXX-feature-name -b feat/XXX-feature-name main
    ```
 3. Change into the worktree directory: `cd .claude/worktrees/XXX-feature-name`
-4. All subsequent work (sub-agents, commits, etc.) happens inside this worktree directory
+4. Store the **absolute path** to this worktree directory — you must pass it to every sub-agent
+5. All subsequent work (sub-agents, commits, etc.) happens inside this worktree directory
 
 **Resuming a partial implementation:**
 If the branch already exists (from a previous interrupted run):
