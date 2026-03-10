@@ -356,24 +356,23 @@ Present the complete, reviewed plan to the user. Include a summary of what the r
 - Note any `./do` script changes
 
 Then use `AskUserQuestion` to present a selection with two options:
-- **"Commit and push (Recommended)"** — The plan is approved. Proceed to step 12.
+- **"Approve"** — The plan is approved. Proceed to step 13.
 - **"I have changes"** — The user wants to iterate. Listen to their feedback, update the plan, and present the selection again.
 
 Do NOT ask an open-ended question. Always use the selection box so the user can approve quickly.
 
 ### 13. Commit and Push
 
-Once the user approves the plan:
+Once the user approves the plan, commit immediately — do NOT ask for confirmation, this is automatic:
 
 1. Stage the plan file: `git add product/plans/todo/XXX-PLAN-FEATURE-NAME.md`
 2. Commit: `Plan: XXX — Feature Name`
-3. Push to main: `git push origin main`
 
-The plan is now on main and ready for `/dev:implement` to pick up.
+Do NOT push. The plan is committed locally on main and ready for `/dev:implement` to pick up.
 
 ## Critical Rules
 
-1. **The `/dev:plan` command writes the plan document, commits, and pushes.** It does NOT execute any code changes — no code, no DDD edits, no ADR creation. All of that happens when `/dev:implement` executes the plan.
+1. **The `/dev:plan` command writes the plan document and commits it locally.** It does NOT push, and it does NOT execute any code changes — no code, no DDD edits, no ADR creation. All of that happens when `/dev:implement` executes the plan.
 
 2. **Every significant decision goes through the user.** Don't make architectural choices unilaterally. Present options, explain trade-offs, get approval.
 
@@ -391,4 +390,4 @@ The plan is now on main and ready for `/dev:implement` to pick up.
 
 9. **Plans go in `product/plans/todo/`.** After implementation via `/dev:implement`, they are moved to `product/plans/done/`.
 
-10. **Always commit and push.** The approved plan is committed to main and pushed immediately.
+10. **Always commit automatically, never push.** The approved plan is committed to main immediately. Never ask the user whether to commit — just do it after approval. Do NOT push.

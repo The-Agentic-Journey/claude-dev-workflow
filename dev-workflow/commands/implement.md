@@ -83,20 +83,34 @@ Rules:
 - Identify all phases
 - Create a task list with all phases
 
-### 2. Create or Resume Branch
+### 2. Create or Resume Worktree
+
+All implementation happens in a **git worktree** inside the `.claude/` directory so the main working directory (where Claude was started) always stays on its original branch and stays clean.
 
 Derive a branch name from the plan filename. For example, plan `003-PLAN-USER-AUTH.md` becomes branch `feat/003-user-auth`.
 
 **New implementation:**
-1. Ensure you're on `main` and it's up to date: `git checkout main && git pull`
-2. Create and switch to the branch: `git checkout -b feat/XXX-feature-name`
+1. Ensure main is up to date: `git pull origin main`
+2. Create the worktree directory and branch:
+   ```bash
+   mkdir -p .claude/worktrees
+   git worktree add .claude/worktrees/XXX-feature-name -b feat/XXX-feature-name main
+   ```
+3. Change into the worktree directory: `cd .claude/worktrees/XXX-feature-name`
+4. All subsequent work (sub-agents, commits, etc.) happens inside this worktree directory
 
 **Resuming a partial implementation:**
 If the branch already exists (from a previous interrupted run):
-1. Switch to the existing branch: `git checkout feat/XXX-feature-name`
-2. Check `git log --oneline` to determine which phases were already committed
-3. Skip completed phases and continue from the next incomplete phase
-4. Inform the user which phases were already done and where you're resuming from
+1. If a worktree for this branch already exists, change into it
+2. If the branch exists but no worktree, create one:
+   ```bash
+   mkdir -p .claude/worktrees
+   git worktree add .claude/worktrees/XXX-feature-name feat/XXX-feature-name
+   cd .claude/worktrees/XXX-feature-name
+   ```
+3. Check `git log --oneline` to determine which phases were already committed
+4. Skip completed phases and continue from the next incomplete phase
+5. Inform the user which phases were already done and where you're resuming from
 
 ### 3. Execute Each Phase
 
@@ -229,15 +243,16 @@ Print the same summary to the CLI that was included in the PR body:
 
 - **Asks questions** — NEVER use `AskUserQuestion`. This is a fully headless process. All operational decisions have predefined behaviors (see below). No exceptions.
 - **Runs `./do check`** — Delegate to a verification sub-agent
-- **Runs any shell commands** — Except `git` commands for branch/commit operations, `curl` for PR creation, `./do run` to start the app, and `mv` for moving the plan file
+- **Runs any shell commands** — Except `git` commands for worktree/branch/commit operations, `curl` for PR creation, `./do run` to start the app, and `mv` for moving the plan file
 - **Implements code changes** — Delegate to implementation sub-agents
 - **Fixes errors** — Delegate to fix sub-agents
 - **Skips verification** — Every phase must pass `./do check` before committing
 
 ### The Orchestrator ALWAYS:
 
-- **Creates a feature branch** from main before starting
-- **Resumes from where it left off** if the branch already exists
+- **Works in a git worktree** — Never changes the branch of the main directory
+- **Creates a feature branch in a worktree** from main before starting
+- **Resumes from where it left off** if the branch/worktree already exists
 - **Delegates implementation** to sub-agents
 - **Delegates verification** to sub-agents
 - **Delegates error fixing** to sub-agents
@@ -271,7 +286,7 @@ This command is fully headless. Every operational scenario has a predefined beha
 | `./do run` fails | Inform user of the error. Continue to PR creation — the failure is noted in the summary. |
 | Multiple plans in `product/plans/todo/` | Pick the one with the lowest plan number. |
 | No plans in `product/plans/todo/` | Error: "No plans found in product/plans/todo/". Stop. |
-| Branch already exists | Resume: check git log for completed phases, skip them, continue from next. |
+| Branch already exists | Resume: find or create worktree, check git log for completed phases, skip them, continue from next. |
 | `git push` fails | Inform user. Do NOT retry. The commits are local — they can push manually. |
 | Fix sub-agent cannot resolve errors after 3 verify-fix cycles | Full stop. Inform user what failed and which phase. Do NOT keep retrying. |
 | Ambiguous or unclear plan instructions | Implement the most literal, straightforward interpretation. Do NOT ask for clarification. |
