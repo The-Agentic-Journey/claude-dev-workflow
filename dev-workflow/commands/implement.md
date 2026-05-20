@@ -1,14 +1,44 @@
-# Implement Plan Command
+# Implement Work Item Command
 
-You are the orchestrator. Your job is to execute a plan by delegating ALL work to sub-agents. You never implement code, fix errors, or run verification yourself — you launch sub-agents to do that work, and you create commits when verification passes.
+You are the orchestrator. Your job is to execute one GitLab work item end-to-end by delegating ALL work to sub-agents. You never implement code, fix errors, or run verification yourself — you launch sub-agents to do that work, and you create commits when verification passes.
+
+This command runs **unattended on a disposable VM**, launched by an external scheduler (e.g. `wi-scheduler`) in response to a work-item assignment webhook. There is no interactive user. All output is logged to stdout (captured in the session transcript) and to GitLab comments.
 
 ## Input
 
-The user provides a plan to implement. Find it using this priority:
+A single positional argument: a GitLab work item URL, e.g. `https://gitlab.com/owner/repo/-/work_items/N`.
 
-1. **File path provided** — Use the specified file
-2. **Plan in current session** — If a plan was created during this session, use it
-3. **Scan `product/plans/todo/`** — If one plan exists, use it. If multiple exist, pick the one with the lowest plan number. If none exist, error: "No plans found in product/plans/todo/"
+### Required environment
+
+- `GITLAB_TOKEN` — personal access token with `api` scope. If missing, log to stdout and exit immediately.
+- The watched repo is already cloned at the current working directory.
+- The project provides:
+  - `./do check` — the full verification command (lint, build, tests). Exits 0 on success.
+  - `./do test-deploy <WI_IID>` — deploys a test/preview env for this work item. Prints **one** URL to stdout on success.
+
+### Loading the plan
+
+1. Parse the URL → namespace path (e.g. `owner/repo`) and work item IID.
+2. Fetch the work item:
+   ```bash
+   curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+     "https://gitlab.com/api/v4/projects/NAMESPACE%2FREPO/issues/IID"
+   ```
+   (URL-encode `/` → `%2F` in the namespace path.)
+3. Use the response: `title` as the plan name, `description` as the plan content.
+4. Derive the branch name: `feat/wi-N-title-slug` (e.g. `feat/wi-3-sentry-setup`).
+
+### Claim the work item
+
+The bot is already the assignee (that's how the scheduler picked up the event). Just add the `progress` label so observers can see the work item is in flight:
+
+```bash
+curl -s -X PUT \
+  -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+  "https://gitlab.com/api/v4/projects/NAMESPACE%2FREPO/issues/IID?add_labels=progress"
+```
+
+If labelling fails, log it and continue — not a stop condition.
 
 ## Three Types of Sub-Agents
 
@@ -17,7 +47,7 @@ The user provides a plan to implement. Find it using this priority:
 Receives a phase description and implements it. Instructions to give the sub-agent:
 
 ```
-Working directory: [absolute path to worktree, e.g. /home/user/project/.claude/worktrees/XXX-feature-name]
+Working directory: [absolute path to worktree]
 
 IMPORTANT: You MUST cd into the working directory above before doing ANY work. All file paths are relative to that directory.
 
@@ -40,10 +70,10 @@ Rules:
 
 ### 2. Verification Sub-Agent
 
-Runs `./do check` with output captured to a unique log file. Instructions to give the sub-agent:
+Runs `./do check` with output captured to a unique log file. Instructions:
 
 ```
-Working directory: [absolute path to worktree, e.g. /home/user/project/.claude/worktrees/XXX-feature-name]
+Working directory: [absolute path to worktree]
 
 IMPORTANT: You MUST cd into the working directory above before doing ANY work.
 
@@ -65,10 +95,10 @@ IMPORTANT:
 
 ### 3. Fix Sub-Agent
 
-Reads the verification log file and fixes the issues. Instructions to give the sub-agent:
+Reads the verification log file and fixes the issues. Instructions:
 
 ```
-Working directory: [absolute path to worktree, e.g. /home/user/project/.claude/worktrees/XXX-feature-name]
+Working directory: [absolute path to worktree]
 
 IMPORTANT: You MUST cd into the working directory above before doing ANY work. All file paths are relative to that directory.
 
@@ -92,66 +122,37 @@ Rules:
 
 ## Orchestration Process
 
-### 1. Read and Analyze the Plan
+### 1. Analyze the plan
 
-- Read the plan file completely
+- Read the work item description completely
 - Identify all phases
 - Create a task list with all phases
 
-### 2. Create or Resume Worktree
+### 2. Create worktree
 
-All implementation happens in a **git worktree** inside the `.claude/` directory so the main working directory (where Claude was started) always stays on its original branch and stays clean.
+```bash
+git pull origin main
+mkdir -p .claude/worktrees
+git worktree add .claude/worktrees/wi-N-feature-name -b feat/wi-N-feature-name main
+```
 
-Derive a branch name from the plan filename. For example, plan `003-PLAN-USER-AUTH.md` becomes branch `feat/003-user-auth`.
+Store the **absolute path** to this worktree — pass it to every sub-agent. No resume logic: this VM is disposable and always starts fresh.
 
-**New implementation:**
-1. Ensure main is up to date: `git pull origin main`
-2. Create the worktree directory and branch:
-   ```bash
-   mkdir -p .claude/worktrees
-   git worktree add .claude/worktrees/XXX-feature-name -b feat/XXX-feature-name main
-   ```
-3. Change into the worktree directory: `cd .claude/worktrees/XXX-feature-name`
-4. Store the **absolute path** to this worktree directory — you must pass it to every sub-agent
-5. All subsequent work (sub-agents, commits, etc.) happens inside this worktree directory
-
-**Resuming a partial implementation:**
-If the branch already exists (from a previous interrupted run):
-1. If a worktree for this branch already exists, change into it
-2. If the branch exists but no worktree, create one:
-   ```bash
-   mkdir -p .claude/worktrees
-   git worktree add .claude/worktrees/XXX-feature-name feat/XXX-feature-name
-   cd .claude/worktrees/XXX-feature-name
-   ```
-3. Check `git log --oneline` to determine which phases were already committed
-4. Skip completed phases and continue from the next incomplete phase
-5. Inform the user which phases were already done and where you're resuming from
-
-### 3. Execute Each Phase
+### 3. Execute each phase
 
 For EACH phase in the plan:
 
-**a) Launch implementation sub-agent**
-- Provide the phase description with full context
-- Wait for completion
+**a) Launch implementation sub-agent** — wait for completion.
 
-**b) Launch verification sub-agent**
-- Wait for result
+**b) Launch verification sub-agent** — wait for result.
 
 **c) Handle verification result**
 
-- **PASS** → Proceed to commit
-- **CODE FAILURE** → Launch fix sub-agent with the log file path, then launch verification sub-agent again. Repeat up to 3 verify-fix cycles. If still failing after 3 cycles, STOP and inform the user.
-- **INFRASTRUCTURE FAILURE** → STOP. Inform the user about the infrastructure issue and the log file path. Do NOT retry, do NOT ask questions.
+- **PASS** → proceed to commit.
+- **CODE FAILURE** → launch fix sub-agent with the log file path, then launch verification sub-agent again. Repeat up to 3 verify-fix cycles. If still failing, STOP (see Failure Reporting).
+- **INFRASTRUCTURE FAILURE** → STOP (see Failure Reporting). Do NOT retry.
 
 **d) Create commit**
-
-Once verification passes, YOU create the commit:
-
-1. Run `git status` to see all changes
-2. Stage all relevant files with `git add`
-3. Create a focused commit for this phase:
 
 ```bash
 git commit -m "$(cat <<'EOF'
@@ -163,146 +164,174 @@ EOF
 )"
 ```
 
+Commit message rules:
+- NEVER add "🤖 Generated with [Claude Code]" footer
+- NEVER add "Co-Authored-By: Claude" or any AI attribution
+- Keep messages professional, focused on technical changes
+
 **e) Mark phase complete and move to next**
 
-### 4. Finalize
-
-After all phases are complete:
-
-1. Move the plan from `product/plans/todo/` to `product/plans/done/`:
-   ```bash
-   git mv product/plans/todo/XXX-PLAN-FEATURE-NAME.md product/plans/done/
-   ```
-2. Amend the last phase commit to include the plan move:
-   ```bash
-   git add product/plans/
-   git commit --amend --no-edit
-   ```
-3. Push the branch:
-   ```bash
-   git push -u origin feat/XXX-feature-name
-   ```
-
-### 5. Start the Application
-
-Start the application so it can be tested:
+### 4. Push the branch
 
 ```bash
-./do run
+git push -u origin feat/wi-N-feature-name
 ```
 
-This runs in the background. The application will be accessible via the public HOST URLs (see Runtime Environment in CLAUDE.md).
+If `git push` fails, STOP (see Failure Reporting).
 
-Determine which `$HOST1`–`$HOST4` URLs are relevant for this project by reading CLAUDE.md's Runtime Environment section.
+### 5. Create the Merge Request
 
-### 6. Create Pull Request (GitHub only)
+```bash
+curl -s -X POST \
+  -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+  -H "Content-Type: application/json" \
+  "https://gitlab.com/api/v4/projects/NAMESPACE%2FREPO/merge_requests" \
+  -d '{
+    "source_branch": "feat/wi-N-feature-name",
+    "target_branch": "main",
+    "title": "wi-N — Feature Name",
+    "description": "[full body, see below]",
+    "remove_source_branch": true
+  }'
+```
 
-Check if `GITHUB_TOKEN` is set in the environment. If so, create a pull request using the GitHub REST API.
-
-**Determine the repo:** Parse the `origin` remote URL to extract `owner/repo`.
-
-**Generate PR body from the plan AND the runtime summary.** The PR body must include everything a reviewer needs — the same information shown in the CLI summary. Specifically:
+MR body:
 
 ```
 ## Summary
 
-[from plan overview]
+[from work item description]
 
-## Live URLs
+## Live URL
 
-The application is running and can be tested at:
-- **Frontend:** $HOST1 (or whichever is relevant)
-- **API:** $HOST2 (or whichever is relevant)
+${LIVE_URL:-deploy failed or not available}
 
 ## Acceptance Criteria
 
-[from plan — as a checklist, all checked]
+[from work item — as a checklist, all checked]
 
 ## Phases
 
 - [x] Phase 1: ...
 - [x] Phase 2: ...
+
+Closes #N
 ```
 
-**Create the PR:**
+If MR creation fails, STOP (see Failure Reporting). The branch is pushed; a human can create the MR manually.
+
+### 6. Deploy the test environment
 
 ```bash
-curl -s -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  -H "Accept: application/vnd.github.v3+json" \
-  "https://api.github.com/repos/OWNER/REPO/pulls" \
-  -d '{
-    "title": "XXX — Feature Name",
-    "head": "feat/XXX-feature-name",
-    "base": "main",
-    "body": "[the full body as described above]"
-  }'
+DEPLOY_OUTPUT=$(./do test-deploy ${WI_IID} 2>&1) || DEPLOY_FAILED=true
 ```
 
-**If `GITHUB_TOKEN` is not set:** Skip PR creation. Inform the user that the branch was pushed and they can create a PR manually. Mention that setting `GITHUB_TOKEN` enables automatic PR creation.
+Capture the printed URL as `LIVE_URL`. If deploy succeeded:
 
-### 7. Summary
+1. Update the MR body's `Live URL` section with the captured URL (PUT to the MR).
+2. Post the URL as an issue comment:
+   ```bash
+   curl -s -X POST \
+     -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+     -H "Content-Type: application/json" \
+     "https://gitlab.com/api/v4/projects/NAMESPACE%2FREPO/issues/IID/notes" \
+     -d "$(jq -n --arg body "Test environment deployed: ${LIVE_URL}" '{body: $body}')"
+   ```
+   (Use whatever user-facing language CLAUDE.md prescribes; default English.)
 
-Print the same summary to the CLI that was included in the PR body:
+If deploy failed, do NOT stop — the MR exists and the code is pushed. Post a deploy-failed comment instead (see Failure Reporting → `deploy-failed`).
+
+### 7. Log completion summary
+
+Log to stdout (captured in the session transcript):
 - List of phases completed
 - List of commits created
 - Branch name
-- PR URL (if created)
-- Application URLs (from `$HOST1`–`$HOST4` environment variables, whichever are relevant)
-- Confirmation that the plan is fully implemented and the app is running
+- MR URL
+- Live URL (or "deploy failed")
 
-**The CLI summary and the PR body must contain the same information.** The PR is the permanent record — anyone looking at the PR should see exactly what the implementer saw.
+This is informational only — there is no interactive user reading the terminal.
+
+### 8. Exit
+
+After the summary is logged, exit cleanly. The scheduler tracks all cross-command state (session_id, last_seen_note_id, VM status) in its own state on the scheduler host.
+
+## Failure Reporting
+
+When the orchestrator hits any STOP path AND `GITLAB_TOKEN` is set: post a comment on the work item describing the failure **before** stopping. Use the user-facing language convention from CLAUDE.md (default English).
+
+Comment body (English default — substitute the project's user-facing language if CLAUDE.md prescribes one):
+
+```
+❌ Implementation stopped — Phase: <name>
+
+Reason: <reason-class>
+<one-paragraph error excerpt or details>
+
+Log: <log-path or "none">
+Branch: <branch> (pushed: <yes|no>)
+Worktree: <absolute-worktree-path>
+```
+
+`reason-class` is one of: `code-failure-after-3-cycles`, `infrastructure-failure`, `git-push-failed`, `mr-creation-failed`, `claim-failed`, `plan-parse-failed`, `deploy-failed`.
+
+Post via the notes API, then add the `failed` label:
+
+```bash
+curl -s -X POST \
+  -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+  -H "Content-Type: application/json" \
+  "https://gitlab.com/api/v4/projects/NAMESPACE%2FREPO/issues/IID/notes" \
+  --data-raw "$(jq -n --arg body "$BODY" '{body: $body}')"
+
+curl -s -X PUT \
+  -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+  "https://gitlab.com/api/v4/projects/NAMESPACE%2FREPO/issues/IID?add_labels=failed"
+```
+
+After posting, stop. Do NOT retry.
+
+For `deploy-failed` specifically: **not** a STOP — the MR exists and the work is done. Post the failure comment, but skip the `failed` label and finish normally.
 
 ## Critical Rules
 
 ### The Orchestrator NEVER:
 
-- **Asks questions** — NEVER use `AskUserQuestion`. This is a fully headless process. All operational decisions have predefined behaviors (see below). No exceptions.
-- **Runs `./do check`** — Delegate to a verification sub-agent
-- **Runs any shell commands** — Except `git` commands for worktree/branch/commit operations, `curl` for PR creation, `./do run` to start the app, and `mv` for moving the plan file
-- **Implements code changes** — Delegate to implementation sub-agents
-- **Fixes errors** — Delegate to fix sub-agents
-- **Skips verification** — Every phase must pass `./do check` before committing
+- Asks questions — NEVER use `AskUserQuestion`. Fully unattended. No exceptions.
+- Runs `./do check` itself — delegate to a verification sub-agent.
+- Performs a production deploy — only `./do test-deploy` is allowed. The bot has no production credentials and must never invoke anything resembling a prod deploy (`./do deploy`, `kubectl apply`, `helm upgrade`, etc.).
+- Runs unrelated shell commands — only: `git`, `curl` for GitLab API calls, `./do test-deploy`, `jq`, and the sub-agent dispatcher.
+- Implements code changes itself — delegate to implementation sub-agents.
+- Fixes errors itself — delegate to fix sub-agents.
+- Skips verification — every phase must pass `./do check` before being committed.
 
 ### The Orchestrator ALWAYS:
 
-- **Works in a git worktree** — Never changes the branch of the main directory
-- **Creates a feature branch in a worktree** from main before starting
-- **Resumes from where it left off** if the branch/worktree already exists
-- **Delegates implementation** to sub-agents
-- **Delegates verification** to sub-agents
-- **Delegates error fixing** to sub-agents
-- **Creates commits** after verification passes
-- **Stops on infrastructure failures** — Full stop, inform the user, do NOT ask or retry
-- **Creates small, focused commits** — One per phase, not batched
-- **Amends the last commit** to include the plan move to `done/`
-- **Pushes the branch** after all phases complete
-- **Starts the application** with `./do run` before creating the PR
-- **Creates a PR** via GitHub REST API if `GITHUB_TOKEN` is available, with live URLs in the body
-- **Keeps CLI summary and PR body in sync** — same information in both
+- Reads CLAUDE.md at the start to pick up project conventions, including the user-facing language for GitLab comments.
+- Works in a git worktree — never changes the branch of the main directory.
+- Creates a focused commit per phase — never batches phases into one commit.
+- Pushes the branch after all phases complete.
+- Creates the MR before deploying the test env (so the MR body can be updated with the URL).
+- Runs `./do test-deploy` after the MR is created.
+- Posts the test URL as an issue comment when deploy succeeds.
+- Posts a failure comment + adds the `failed` label on every STOP path (`deploy-failed` is the only exception that posts without the label).
 
 ### Sub-Agents NEVER:
 
-- Ask questions or request clarification — NEVER use `AskUserQuestion`
-- Run `./do check` (except verification sub-agents)
-- Create commits
-- Move plan files
-- Push or create branches
+- Ask questions or request clarification — NEVER use `AskUserQuestion`.
+- Run `./do check` (except verification sub-agents).
+- Create commits.
+- Push or create branches.
 
 ## Hardcoded Operational Decisions
 
-This command is fully headless. Every operational scenario has a predefined behavior. The orchestrator and all sub-agents follow these rules without exception — no asking, no prompting, no confirmation.
-
 | Scenario | Behavior |
 |----------|----------|
-| `GITHUB_TOKEN` not set | Push the branch. Skip PR creation. Inform user that setting `GITHUB_TOKEN` enables automatic PRs. |
-| `GITHUB_TOKEN` set but PR creation fails | Inform user of the error. The branch is already pushed — they can create a PR manually. |
-| `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then full stop. |
-| `./do check` fails with infrastructure errors (DNS, network, permissions, missing tools) | Full stop. Inform the user what happened. Do NOT retry. |
-| `./do run` fails | Inform user of the error. Continue to PR creation — the failure is noted in the summary. |
-| Multiple plans in `product/plans/todo/` | Pick the one with the lowest plan number. |
-| No plans in `product/plans/todo/` | Error: "No plans found in product/plans/todo/". Stop. |
-| Branch already exists | Resume: find or create worktree, check git log for completed phases, skip them, continue from next. |
-| `git push` fails | Inform user. Do NOT retry. The commits are local — they can push manually. |
-| Fix sub-agent cannot resolve errors after 3 verify-fix cycles | Full stop. Inform user what failed and which phase. Do NOT keep retrying. |
-| Ambiguous or unclear plan instructions | Implement the most literal, straightforward interpretation. Do NOT ask for clarification. |
+| `GITLAB_TOKEN` not set | Log to stdout, exit. (Webhook layer should never have invoked us without it.) |
+| Adding `progress` label fails | Log it, continue with implementation. |
+| `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then post failure comment + `failed` label, stop. |
+| `./do check` fails with infrastructure errors | Post failure comment + `failed` label, stop. Do NOT retry. |
+| `git push` fails | Post failure comment + `failed` label, stop. Local commits remain in the worktree. |
+| MR creation fails | Post failure comment + `failed` label, stop. Branch is pushed; a human can create the MR manually. |
+| `./do test-deploy` fails | Post `deploy-failed` warning comment (no `failed` label). Finish normally — MR exists, code is pushed. |
+| Ambiguous or unclear plan | Implement the most literal, straightforward interpretation. Do NOT ask for clarification. |
