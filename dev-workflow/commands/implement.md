@@ -4,6 +4,8 @@ You are the orchestrator. Your job is to execute one GitLab work item end-to-end
 
 This command runs **unattended on a disposable VM**, launched by an external scheduler (e.g. `wi-scheduler`) in response to a work-item assignment webhook. There is no interactive user. All output is logged to stdout (captured in the session transcript) and to GitLab comments.
 
+The VM is a disposable sandbox with **passwordless sudo**. If a sub-agent hits a missing system tool (e.g. `apt-get`, `pip`, `npm`, a CLI binary), it should install it and proceed — missing software is **not** an infrastructure failure.
+
 ## Input
 
 A single positional argument: a GitLab work item URL, e.g. `https://gitlab.com/owner/repo/-/work_items/N`.
@@ -65,6 +67,7 @@ Rules:
 - Do NOT run ./do check
 - Do NOT create any commits
 - NEVER ask questions or use AskUserQuestion — just implement what the phase says
+- The VM is a disposable sandbox with passwordless sudo — if you need a missing system tool, install it (e.g. `sudo apt-get install -y <pkg>`) rather than working around it
 - Report back what you implemented when done
 ```
 
@@ -83,14 +86,20 @@ cd [worktree path]
 LOG_FILE="/tmp/do-check-$(date +%s)-$$.log"
 ./do check 2>&1 | tee "$LOG_FILE"
 
+If the run fails because a system tool is missing (e.g. "command not found", missing binary, missing apt/pip/npm package), install it with passwordless sudo and re-run `./do check` (logging to a new LOG_FILE). The VM is a disposable sandbox — installing is expected. Examples:
+- `sudo apt-get update && sudo apt-get install -y <pkg>`
+- `sudo pip install <pkg>` / `sudo npm install -g <pkg>`
+
+Only escalate to INFRASTRUCTURE FAILURE if the install itself fails or the problem is not a missing tool (network outage, permission error on a mounted volume, etc.).
+
 Report back with one of:
-1. PASS — All checks passed. Include the log file path.
+1. PASS — All checks passed. Include the (final) log file path.
 2. CODE FAILURE — Lint errors, build errors, or test failures. Include the log file path.
-3. INFRASTRUCTURE FAILURE — Network issues, missing tools, permission errors, environment problems. Include the log file path.
+3. INFRASTRUCTURE FAILURE — Non-installable environment problem. Include the log file path and note what you tried to install (if anything).
 
 IMPORTANT:
 - Always include the log file path in your response. Do NOT paste the full output — the log file is the source of truth.
-- NEVER ask questions or use AskUserQuestion — just report the result.
+- NEVER ask questions or use AskUserQuestion — just install, retry, or report.
 ```
 
 ### 3. Fix Sub-Agent
@@ -118,6 +127,7 @@ Rules:
 - Do NOT run ./do check
 - Do NOT create any commits
 - NEVER ask questions or use AskUserQuestion — just fix and report
+- The VM is a disposable sandbox with passwordless sudo — if a missing system tool is the root cause, install it (e.g. `sudo apt-get install -y <pkg>`) instead of editing code around it
 ```
 
 ## Orchestration Process
@@ -300,7 +310,7 @@ For `deploy-failed` specifically: **not** a STOP — the MR exists and the work 
 - Asks questions — NEVER use `AskUserQuestion`. Fully unattended. No exceptions.
 - Runs `./do check` itself — delegate to a verification sub-agent.
 - Performs a production deploy — only `./do test-deploy` is allowed. The bot has no production credentials and must never invoke anything resembling a prod deploy (`./do deploy`, `kubectl apply`, `helm upgrade`, etc.).
-- Runs unrelated shell commands — only: `git`, `curl` for GitLab API calls, `./do test-deploy`, `jq`, and the sub-agent dispatcher.
+- Runs unrelated shell commands — only: `git`, `curl` for GitLab API calls, `./do test-deploy`, `jq`, and the sub-agent dispatcher. (Sub-agents may run `sudo` to install missing tools; the orchestrator itself does not.)
 - Implements code changes itself — delegate to implementation sub-agents.
 - Fixes errors itself — delegate to fix sub-agents.
 - Skips verification — every phase must pass `./do check` before being committed.
@@ -330,7 +340,8 @@ For `deploy-failed` specifically: **not** a STOP — the MR exists and the work 
 | `GITLAB_TOKEN` not set | Log to stdout, exit. (Webhook layer should never have invoked us without it.) |
 | Adding `progress` label fails | Log it, continue with implementation. |
 | `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then post failure comment + `failed` label, stop. |
-| `./do check` fails with infrastructure errors | Post failure comment + `failed` label, stop. Do NOT retry. |
+| `./do check` fails because a tool is missing | Sub-agent installs it via passwordless sudo and re-runs `./do check`. Only escalate if install fails. |
+| `./do check` fails with infrastructure errors (network, non-installable) | Post failure comment + `failed` label, stop. Do NOT retry. |
 | `git push` fails | Post failure comment + `failed` label, stop. Local commits remain in the worktree. |
 | MR creation fails | Post failure comment + `failed` label, stop. Branch is pushed; a human can create the MR manually. |
 | `./do test-deploy` fails | Post `deploy-failed` warning comment (no `failed` label). Finish normally — MR exists, code is pushed. |
