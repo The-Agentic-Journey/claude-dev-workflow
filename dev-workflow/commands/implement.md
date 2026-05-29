@@ -4,7 +4,7 @@ You are the orchestrator. Your job is to execute one GitLab work item end-to-end
 
 This command runs **unattended on a disposable VM**, launched by an external scheduler (e.g. `wi-scheduler`) in response to a work-item assignment webhook. There is no interactive user. All output is logged to stdout (captured in the session transcript) and to GitLab comments.
 
-The VM is a disposable sandbox with **passwordless sudo**. If a sub-agent hits a missing system tool (e.g. `apt-get`, `pip`, `npm`, a CLI binary), it should install it and proceed — missing software is **not** an infrastructure failure.
+The VM is a disposable sandbox with **passwordless sudo**, and provisioning the environment is part of the job. If a sub-agent hits a missing system tool — a CLI binary, a compiler/`make`, a node-gyp / native-build failure, or a missing apt/pip/npm package — it must install it (e.g. `sudo apt-get install -y build-essential <pkg>`) and re-run. **Missing software is never an infrastructure failure.** An infrastructure failure is only a non-installable problem (network/DNS outage, a mounted-volume permission error) or a provisioning command that itself failed. A dependency that *still* won't build once the toolchain is present is a **code failure** — fix it (e.g. bump the dependency to a version compatible with the VM's runtime) — not infrastructure.
 
 ## Input
 
@@ -80,22 +80,29 @@ Working directory: [absolute path to worktree]
 
 IMPORTANT: You MUST cd into the working directory above before doing ANY work.
 
-Run the project's full verification command, capturing all output to a unique log file:
+This VM is a disposable sandbox with passwordless sudo. Provisioning the environment is YOUR job — never report a failure you could have fixed by installing a tool.
+
+Step 1 — Run the full verification, capturing all output to a unique log file:
 
 cd [worktree path]
 LOG_FILE="/tmp/do-check-$(date +%s)-$$.log"
 ./do check 2>&1 | tee "$LOG_FILE"
 
-If the run fails because a system tool is missing (e.g. "command not found", missing binary, missing apt/pip/npm package), install it with passwordless sudo and re-run `./do check` (logging to a new LOG_FILE). The VM is a disposable sandbox — installing is expected. Examples:
-- `sudo apt-get update && sudo apt-get install -y <pkg>`
-- `sudo pip install <pkg>` / `sudo npm install -g <pkg>`
+Step 2 — If it fails, decide WHY before reporting:
 
-Only escalate to INFRASTRUCTURE FAILURE if the install itself fails or the problem is not a missing tool (network outage, permission error on a mounted volume, etc.).
+- MISSING TOOL / NATIVE BUILD — the log shows "command not found", "not found: make", a missing binary or shared library, a node-gyp / prebuild compile failure, or a missing apt/pip/npm package. This is NOT an infrastructure failure. Install the missing tool/toolchain with passwordless sudo and re-run `./do check` to a NEW LOG_FILE. Examples:
+    sudo apt-get update && sudo apt-get install -y build-essential <pkg>
+    sudo pip install <pkg>   /   sudo npm install -g <pkg>
+  Repeat until the tooling error is gone, or a provisioning command itself exits non-zero.
 
-Report back with one of:
-1. PASS — All checks passed. Include the (final) log file path.
-2. CODE FAILURE — Lint errors, build errors, or test failures. Include the log file path.
-3. INFRASTRUCTURE FAILURE — Non-installable environment problem. Include the log file path and note what you tried to install (if anything).
+- CODE FAILURE — lint/build/test errors in the project's own code, INCLUDING a dependency that still fails to build or run after the toolchain is present (the fix is a code/dependency change — e.g. upgrading the package to a version compatible with this runtime). The fix sub-agent handles these.
+
+- INFRASTRUCTURE FAILURE — ONLY one of: a provisioning command you ACTUALLY RAN exited non-zero (capture its output), or a non-software problem you cannot install your way out of (network/DNS outage, permission error on a mounted volume). A tool obtainable via apt / pip / npm is NEVER an infrastructure failure, even when it feels like "the environment".
+
+Report back with EXACTLY one of:
+1. PASS — All checks passed. Include the final log file path.
+2. CODE FAILURE — Project code/dependency errors. Include the log file path.
+3. INFRASTRUCTURE FAILURE — Include the log file path AND the exact provisioning command(s) you ran with their non-zero output. If you ran no provisioning command, you may NOT report this class — go back to Step 2.
 
 IMPORTANT:
 - Always include the log file path in your response. Do NOT paste the full output — the log file is the source of truth.
@@ -160,7 +167,7 @@ For EACH phase in the plan:
 
 - **PASS** → proceed to commit.
 - **CODE FAILURE** → launch fix sub-agent with the log file path, then launch verification sub-agent again. Repeat up to 3 verify-fix cycles. If still failing, STOP (see Failure Reporting).
-- **INFRASTRUCTURE FAILURE** → STOP (see Failure Reporting). Do NOT retry.
+- **INFRASTRUCTURE FAILURE** → only valid if the verification agent's report includes the provisioning command(s) it ran and their non-zero output. Do NOT second-guess the verdict by running your own diagnostic shell commands (`which`, `apt`, `ls`, …) — you are restricted to git / curl / jq / `./do test-deploy`, and the verification agent owns this call. STOP (see Failure Reporting). Do NOT retry.
 
 **d) Create commit**
 
@@ -311,6 +318,7 @@ For `deploy-failed` specifically: **not** a STOP — the MR exists and the work 
 - Runs `./do check` itself — delegate to a verification sub-agent.
 - Performs a production deploy — only `./do test-deploy` is allowed. The bot has no production credentials and must never invoke anything resembling a prod deploy (`./do deploy`, `kubectl apply`, `helm upgrade`, etc.).
 - Runs unrelated shell commands — only: `git`, `curl` for GitLab API calls, `./do test-deploy`, `jq`, and the sub-agent dispatcher. (Sub-agents may run `sudo` to install missing tools; the orchestrator itself does not.)
+- Second-guesses a verification verdict by running its own diagnostic commands (`which`, `apt`, `ls`, …). It trusts the verification sub-agent's classification — re-inspecting the environment to "confirm" an infra failure is itself off-spec.
 - Implements code changes itself — delegate to implementation sub-agents.
 - Fixes errors itself — delegate to fix sub-agents.
 - Skips verification — every phase must pass `./do check` before being committed.
@@ -340,8 +348,9 @@ For `deploy-failed` specifically: **not** a STOP — the MR exists and the work 
 | `GITLAB_TOKEN` not set | Log to stdout, exit. (Webhook layer should never have invoked us without it.) |
 | Adding `progress` label fails | Log it, continue with implementation. |
 | `./do check` fails with code errors | Launch fix sub-agent. Retry verification. Repeat up to 3 cycles, then post failure comment + `failed` label, stop. |
-| `./do check` fails because a tool is missing | Sub-agent installs it via passwordless sudo and re-runs `./do check`. Only escalate if install fails. |
-| `./do check` fails with infrastructure errors (network, non-installable) | Post failure comment + `failed` label, stop. Do NOT retry. |
+| `./do check` fails because a tool/compiler is missing or a native build (node-gyp) fails | Verification sub-agent installs the toolchain (`build-essential`, etc.) via passwordless sudo and re-runs. NOT an infra failure. Only escalate if a provisioning command itself exits non-zero. |
+| A dependency still won't build/run after the toolchain is present | CODE FAILURE — launch fix sub-agent (e.g. bump the dependency to a version compatible with the VM's runtime). Not infra. |
+| `./do check` fails with a genuine infrastructure error (network/DNS outage, mounted-volume permissions, or a provisioning command that itself failed) | Post failure comment + `failed` label, stop. Report MUST include the provisioning command(s) attempted and their output. Do NOT retry. |
 | `git push` fails | Post failure comment + `failed` label, stop. Local commits remain in the worktree. |
 | MR creation fails | Post failure comment + `failed` label, stop. Branch is pushed; a human can create the MR manually. |
 | `./do test-deploy` fails | Post `deploy-failed` warning comment (no `failed` label). Finish normally — MR exists, code is pushed. |
